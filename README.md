@@ -64,7 +64,7 @@ Do not use it without consent from users. Respect privacy laws like GDPR and CCP
 
 📜 License
 MIT License
-
+```
 
 ## 💰 Donations
 
