@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP Logger</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+        .ip-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 2px solid #007bff;
+        }
+        .status {
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .loading {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .info {
+            color: #666;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Public IP Logger</h1>
+        <p>Your public IP address is:</p>
+        <div class="ip-display" id="ip-display">Detecting...</div>
+        <div class="status loading" id="status">Fetching your public IP address...</div>
+        <div class="info">
+            <p>This page detects your public IP address (the IP your ISP assigns you) and logs it to the server.</p>
+            <p>This works even if you're behind a router or NAT.</p>
+        </div>
+    </div>
+
+    <script>
+        async function getPublicIP() {
+            const statusDiv = document.getElementById('status');
+            const ipDisplay = document.getElementById('ip-display');
+            
+            try {
+                statusDiv.textContent = 'Detecting your IP address...';
+                statusDiv.className = 'status loading';
+                
+                // FAST METHOD: Try server-side IP detection first (no external API call)
+                let publicIP = null;
+                let method = 'server';
+                
+                try {
+                    const serverResponse = await fetch('/get-ip', {
+                        method: 'GET',
+                        cache: 'no-cache'
+                    });
+                    
+                    if (serverResponse.ok) {
+                        const serverData = await serverResponse.json();
+                        publicIP = serverData.ip;
+                        method = 'server-headers';
+                    }
+                } catch (e) {
+                    console.log('Server IP detection failed, trying external API');
+                }
+                
+                // FALLBACK: Use external API if server method fails
+                if (!publicIP) {
+                    statusDiv.textContent = 'Using external IP detection...';
+                    
+                    // Use Promise.race to timeout quickly if API is slow
+                    const timeoutPromise = new Promise((_, reject) => 
+                        setTimeout(() => reject(new Error('External API timeout')), 3000)
+                    );
+                    
+                    const apiPromise = fetch('https://api.ipify.org?format=json')
+                        .then(response => response.json());
+                    
+                    try {
+                        const data = await Promise.race([apiPromise, timeoutPromise]);
+                        publicIP = data.ip;
+                        method = 'external-api';
+                        
+                        // Send to server for logging
+                        fetch('/save-ip', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ ip: publicIP })
+                        }).catch(e => console.log('Background logging failed:', e));
+                        
+                    } catch (error) {
+                        throw new Error('All IP detection methods failed');
+                    }
+                }
+                
+                // Display the IP immediately
+                ipDisplay.textContent = publicIP;
+                statusDiv.textContent = `IP detected and logged! (via ${method})`;
+                statusDiv.className = 'status success';
+                
+            } catch (error) {
+                console.error('Error:', error);
+                ipDisplay.textContent = 'Failed to detect IP';
+                statusDiv.textContent = `Error: ${error.message}`;
+                statusDiv.className = 'status error';
+            }
+        }
+        
+        // Get IP immediately when page loads
+        window.addEventListener('DOMContentLoaded', getPublicIP);
+    </script>
+</body>
+</html>

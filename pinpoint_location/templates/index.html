@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Location Request</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin-top: 100px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 18px;
+      background-color: #007BFF;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Allow Location Access</h1>
+  <p>This app will fetch your current location to verify your city and coordinates.</p>
+  <button onclick="getLocation()">Share Location</button>
+
+  <script>
+    async function getPublicIP() {
+      const res = await fetch("https://ipinfo.io/json?token=67974839919796"); // Replace with real token
+      const data = await res.json();
+      return data.ip;
+    }
+
+    function getLocation() {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(async function (position) {
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
+          const ip = await getPublicIP();
+
+          alert("Your Coordinates:\nLatitude: " + latitude + "\nLongitude: " + longitude + "\nIP: " + ip);
+
+          // Optional: Send data to your backend
+          fetch("/log_location", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ip, latitude, longitude })
+          });
+        }, function (error) {
+          alert("Location access denied or error: " + error.message);
+        }, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        });
+      } else {
+        alert("Geolocation is not supported by this browser.");
+      }
+    }
+  </script>
+</body>
+</html>
